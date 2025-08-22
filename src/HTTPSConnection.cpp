@@ -21,7 +21,7 @@ namespace httpsserver
 HTTPSConnection::HTTPSConnection(ResourceResolver * resResolver):
   HTTPConnection(resResolver)
 {
-  _ssl = NULL;
+  _ssl = esp_tls_init();
 }
 
 HTTPSConnection::~HTTPSConnection()
@@ -40,55 +40,40 @@ bool HTTPSConnection::isSecure()
 
    The call WILL BLOCK if accept(serverSocketID) blocks. So use select() to check for that in advance.
 */
-int HTTPSConnection::initialize(int serverSocketID, SSL_CTX * sslCtx, HTTPHeaders *defaultHeaders)
+int HTTPSConnection::initialize(int serverSocketID, esp_tls_cfg_server_t * cfgSrv, HTTPHeaders *defaultHeaders)
 {
   if (_connectionState == STATE_UNDEFINED)
   {
     // Let the base class connect the plain tcp socket
     int resSocket = HTTPConnection::initialize(serverSocketID, defaultHeaders);
-
+	HTTPS_LOGI("Cert len:%d, apn:%s\n",cfgSrv->servercert_bytes,cfgSrv->alpn_protos[0]);
     // Build up SSL Connection context if the socket has been created successfully
     if (resSocket >= 0)
     {
-
-      _ssl = SSL_new(sslCtx);
-
-      if (_ssl)
-      {
-        // Bind SSL to the socket
-        int success = SSL_set_fd(_ssl, resSocket);
-
-        if (success)
-        {
-
-          // Perform the handshake
-          success = SSL_accept(_ssl);
-
-          if (success)
-          {
-            return resSocket;
-          }
-          else
-          {
-            HTTPS_LOGE("SSL_accept failed. Aborting handshake. FID=%d", resSocket);
-          }
-        }
-        else
-        {
-          HTTPS_LOGE("SSL_set_fd failed. Aborting handshake. FID=%d", resSocket);
-        }
-      }
-      else
-      {
-        HTTPS_LOGE("SSL_new failed. Aborting handshake. FID=%d", resSocket);
-      }
-
-    }
-    else
-    {
-      HTTPS_LOGE("Could not accept() new connection. FID=%d", resSocket);
-    }
-
+	  int res=esp_tls_server_session_create(cfgSrv,resSocket,_ssl);	
+      if (0==res)
+	    {
+		esp_tls_cfg_server_session_tickets_init(cfgSrv);
+		_cfg = cfgSrv;
+		// Bind SSL to the socket
+		if (ESP_OK == esp_tls_get_conn_sockfd(_ssl,&resSocket))
+			{
+			return resSocket;
+			}
+		else
+		    {
+		   	HTTPS_LOGE("SSL_accept failed. Aborting handshake. FID=%d", resSocket);  
+		    }
+		}	
+	  else
+	    {
+		HTTPS_LOGE("SSL_new failed. Aborting handshake. ERROR=%d", res);
+		}
+	}
+	else
+		{
+		HTTPS_LOGE("Could not accept() new connection. FID=%d", resSocket);	
+		}
     _connectionState = STATE_ERROR;
     _clientState = CSTATE_ACTIVE;
 
@@ -96,11 +81,9 @@ int HTTPSConnection::initialize(int serverSocketID, SSL_CTX * sslCtx, HTTPHeader
     // variables like _ssl etc.
     closeConnection();
   }
-
   // Error: The connection has already been established or could not be established
   return -1;
 }
-
 
 void HTTPSConnection::closeConnection()
 {
@@ -122,56 +105,36 @@ void HTTPSConnection::closeConnection()
 
   // Try to tear down SSL while we are in the _shutdownTS timeout period or if an error occurred
   if (_ssl)
-  {
-    if (_connectionState == STATE_ERROR || SSL_shutdown(_ssl) == 0)
-    {
-      // SSL_shutdown will return 1 as soon as the client answered with close notify
-      // This means we are safe to close the socket
-      SSL_free(_ssl);
-      _ssl = NULL;
-    }
-    else if (_shutdownTS + HTTPS_SHUTDOWN_TIMEOUT < millis())
-    {
-      // The timeout has been hit, we force SSL shutdown now by freeing the context
-      SSL_free(_ssl);
-      _ssl = NULL;
-      HTTPS_LOGW("SSL_shutdown did not receive close notification from the client");
-      _connectionState = STATE_ERROR;
-    }
-  }
-
-  // If SSL has been brought down, close the socket
+	{
+    esp_tls_cfg_server_session_tickets_free(_cfg);
+	esp_tls_server_session_delete(_ssl);
+	_ssl = NULL;
+	_connectionState = STATE_ERROR;
+	}
   if (!_ssl)
-  {
-    HTTPConnection::closeConnection();
+	{
+	HTTPConnection::closeConnection();
+	}
   }
-}
 
 size_t HTTPSConnection::writeBuffer(byte* buffer, size_t length)
 {
-  return SSL_write(_ssl, buffer, length);
+  return esp_tls_conn_write(_ssl, buffer, length);
 }
 
 size_t HTTPSConnection::readBytesToBuffer(byte* buffer, size_t length)
 {
-  int ret = SSL_read(_ssl, buffer, length);
-
-  if (ret < 0)
-  {
-    HTTPS_LOGD("SSL_read error: %d",  SSL_get_error(_ssl, ret));
-  }
-
-  return ret;
+  return esp_tls_conn_read(_ssl, buffer, length);
 }
 
 size_t HTTPSConnection::pendingByteCount()
 {
-  return SSL_pending(_ssl);
+  return esp_tls_get_bytes_avail(_ssl);
 }
 
 bool HTTPSConnection::canReadData()
 {
-  return HTTPConnection::canReadData() || (SSL_pending(_ssl) > 0);
+  return HTTPConnection::canReadData() || (esp_tls_get_bytes_avail(_ssl) > 0);
 }
 
 } /* namespace httpsserver */

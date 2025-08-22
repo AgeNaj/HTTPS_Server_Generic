@@ -16,21 +16,47 @@
 
 namespace httpsserver
 {
+constexpr const char * alpn_protos[] = { "http/1.1", NULL } ;
 
-
-HTTPSServer::HTTPSServer(SSLCert * cert, const uint16_t port, const uint8_t maxConnections,
-                         const in_addr_t bindAddress):
+HTTPSServer::HTTPSServer(SSLCert * cert, const uint16_t port, const uint8_t maxConnections, const in_addr_t bindAddress):
   HTTPServer(port, maxConnections, bindAddress),
   _cert(cert)
-{
+	{
+		
+	// Check if _cert is null
+  if (_cert == nullptr || 
+    _cert->getCertData() == nullptr || 
+    _cert->getCertLength() == 0 || 
+    _cert->getPKData() == nullptr || 
+    _cert->getPKLength() == 0) {
+    Serial.println("ERROR: Invalid SSL certificate or private key.");
+    return;  // Handle the error (e.g., return or set an error flag)
+}	
+		
+		
+	_cfg = new esp_tls_cfg_server();
 
-  // Configure runtime data
-  _sslctx = NULL;
-}
+
+	if (_cfg == nullptr) {
+    Serial.println("ERROR: Failed to allocate memory for _cfg");
+    return;  // Handle the error (e.g., return or set an error flag)
+	}
+
+
+
+	_cfg->alpn_protos = (const char **)alpn_protos;
+	_cfg->cacert_buf = NULL;
+	_cfg->cacert_bytes = 0;
+	_cfg->servercert_buf =cert->getCertData();
+	_cfg->servercert_bytes = cert->getCertLength();
+	_cfg->serverkey_buf= cert->getPKData();
+	_cfg->serverkey_bytes= cert->getPKLength();
+	}
 
 HTTPSServer::~HTTPSServer()
 {
-
+	//free(_cfg);
+	delete _cfg;
 }
 
 /**
@@ -39,100 +65,69 @@ HTTPSServer::~HTTPSServer()
 uint8_t HTTPSServer::setupSocket()
 {
   if (!isRunning())
-  {
-    if (!setupSSLCTX())
-    {
-      Serial.println("setupSSLCTX failed");
-      return 0;
-    }
+	{
+    _cfg->servercert_buf= _cert->getCertData();
+	_cfg->servercert_bytes = _cert->getCertLength();
+	_cfg->serverkey_buf= _cert->getPKData();
+	_cfg->serverkey_bytes= _cert->getPKLength();	
 
-    if (!setupCert())
+	//if(HTTPSServer::setupSocket())
+	//	{
+	//	return 1;	
+	//	}
+	//else
+	//	{
+	//	Serial.println("setupSockets failed");
+	//	return 0;
+	//	}
+	if (!HTTPServer::setupSocket())  // Ensure this calls the base class setupSocket
     {
-      Serial.println("setupCert failed");
-      SSL_CTX_free(_sslctx);
-      _sslctx = NULL;
-      return 0;
+      Serial.println("ERROR: Failed to setup socket in HTTPSServer.");
+      return 0;  // Return an error code or handle as needed
     }
-
-    if (HTTPServer::setupSocket())
-    {
-      return 1;
-    }
-    else
-    {
-      Serial.println("setupSockets failed");
-      SSL_CTX_free(_sslctx);
-      _sslctx = NULL;
-      return 0;
-    }
-  }
+    return 1;  // Successfully set up the socket
+	
+	
+	
+	}
   else
-  {
-    return 1;
-  }
-}
+	{
+	return 1;
+	}
+}	
 
 void HTTPSServer::teardownSocket()
 {
-
   HTTPServer::teardownSocket();
-
-  // Tear down the SSL context
-  SSL_CTX_free(_sslctx);
-  _sslctx = NULL;
 }
 
 int HTTPSServer::createConnection(int idx)
 {
   HTTPSConnection * newConnection = new HTTPSConnection(this);
   _connections[idx] = newConnection;
-  return newConnection->initialize(_socket, _sslctx, &_defaultHeaders);
+  return newConnection->initialize(_socket, _cfg, &_defaultHeaders);
 }
 
 /**
    This method configures the ssl context that is used for the server
 */
-uint8_t HTTPSServer::setupSSLCTX()
-{
-  _sslctx = SSL_CTX_new(TLSv1_2_server_method());
-
-  if (_sslctx)
-  {
-    // Set SSL Timeout to 5 minutes
-    SSL_CTX_set_timeout(_sslctx, 300);
-    return 1;
-  }
-  else
-  {
-    _sslctx = NULL;
-    return 0;
-  }
-}
-
-/**
-   This method configures the certificate and private key for the given
-   ssl context
-*/
 uint8_t HTTPSServer::setupCert()
-{
-  // Configure the certificate first
-  uint8_t ret = SSL_CTX_use_certificate_ASN1(
-                  _sslctx,
-                  _cert->getCertLength(),
-                  _cert->getCertData()
-                );
-
-  // Then set the private key accordingly
-  if (ret)
-  {
-    ret = SSL_CTX_use_RSAPrivateKey_ASN1(
-            _sslctx,
-            _cert->getPKData(),
-            _cert->getPKLength()
-          );
-  }
-
-  return ret;
-}
-
+	{
+    // Check if _cert is null before accessing it
+    if (_cert == nullptr) {
+        Serial.println("ERROR: SSL Certificate is null in setupCert!");
+        return 0;  // Return an error code or handle as needed
+    }
+	
+	
+	
+	
+	// Configure the certificate first
+	_cfg->servercert_buf= _cert->getCertData();
+	_cfg->servercert_bytes = _cert->getCertLength();
+	_cfg->serverkey_buf= _cert->getPKData();
+	_cfg->serverkey_bytes= _cert->getPKLength();
+	return 1;
+	}
+	
 } /* namespace httpsserver */

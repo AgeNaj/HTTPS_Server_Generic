@@ -204,7 +204,10 @@ static int cert_write(SSLCert &certCtx, std::string dn, std::string validityFrom
   mbedtls_ctr_drbg_context ctr_drbg;
   mbedtls_pk_context key;
   mbedtls_x509write_cert crt;
-  mbedtls_mpi serial;
+  //mbedtls_mpi serial;
+  unsigned char serial[] = { 0x01 };  // Serial number "1" as a raw byte (you can change this to another serial number)
+  size_t serial_len = sizeof(serial); // Length of the serial number
+   
   unsigned char * primary_buffer;
   unsigned char *certOffset;
   unsigned char * output_buffer;
@@ -228,8 +231,8 @@ static int cert_write(SSLCert &certCtx, std::string dn, std::string validityFrom
   }
 
   mbedtls_pk_init( &key );
-  stepRes = mbedtls_pk_parse_key( &key, certCtx.getPKData(), certCtx.getPKLength(), NULL, 0 );
-
+  //stepRes = mbedtls_pk_parse_key( &key, certCtx.getPKData(), certCtx.getPKLength(), NULL, 0 );
+  stepRes = mbedtls_pk_parse_key( &key, certCtx.getPKData(), certCtx.getPKLength(), NULL, 0, NULL, NULL );
   if (stepRes != 0)
   {
     funcRes = HTTPS_SERVER_ERROR_CERTGEN_READKEY;
@@ -282,17 +285,17 @@ static int cert_write(SSLCert &certCtx, std::string dn, std::string validityFrom
   }
 
   // Initialize the serial number
-  mbedtls_mpi_init( &serial );
-  stepRes = mbedtls_mpi_read_string( &serial, 10, "1" );
+  //mbedtls_mpi_init( &serial );
+  //stepRes = mbedtls_mpi_read_string( &serial, 10, "1" );
 
-  if (stepRes != 0)
-  {
-    funcRes = HTTPS_SERVER_ERROR_CERTGEN_SERIAL;
-    goto error_after_cert_serial;
-  }
+  //if (stepRes != 0)
+  //{
+  //  funcRes = HTTPS_SERVER_ERROR_CERTGEN_SERIAL;
+  //  goto error_after_cert_serial;
+  //}
 
-  stepRes = mbedtls_x509write_crt_set_serial( &crt, &serial );
-
+  //stepRes = mbedtls_x509write_crt_set_serial_raw( &crt, &serial );
+  stepRes = mbedtls_x509write_crt_set_serial_raw( &crt, serial, serial_len );	
   if (stepRes != 0)
   {
     funcRes = HTTPS_SERVER_ERROR_CERTGEN_SERIAL;
@@ -340,7 +343,7 @@ error_after_primary_buffer:
   delete[] primary_buffer;
 
 error_after_cert_serial:
-  mbedtls_mpi_free( &serial );
+  //mbedtls_mpi_free( &serial );
 
 error_after_cert:
   mbedtls_x509write_crt_free( &crt );

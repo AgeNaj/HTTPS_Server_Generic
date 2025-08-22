@@ -19,17 +19,7 @@
 #include <IPAddress.h>
 
 // Required for SSL
-#if 0
-#if defined(ESP32)
-  //#include "openssl/ssl.h"
-  #include "mbedtls/ssl.h"
-#elif ( defined(ARDUINO_PORTENTA_H7_M7) || defined(ARDUINO_PORTENTA_H7_M4) )
-  #include "mbedtls/ssl.h"
-#endif
-#endif
-
-#undef read
-
+#include <esp_tls.h>
 namespace httpsserver {
 
 class WebsocketHandler;

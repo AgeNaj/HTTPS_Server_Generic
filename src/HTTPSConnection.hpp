@@ -20,18 +20,9 @@
 #include <string>
 
 // Required for SSL
-#if 0
-#if defined(ESP32)
-  #include "openssl/ssl.h"
-  //#include "mbedtls/ssl.h"
-#elif ( defined(ARDUINO_PORTENTA_H7_M7) || defined(ARDUINO_PORTENTA_H7_M4) )
-  #include "mbedtls/ssl.h"
-#endif
-#endif
+#include <esp_tls.h>
 
 #include <HTTPS_Server_Generic.h>
-
-#undef read
 
 // Required for sockets
 #include "lwip/netdb.h"
@@ -58,7 +49,7 @@ public:
   HTTPSConnection(ResourceResolver * resResolver);
   virtual ~HTTPSConnection();
 
-  virtual int initialize(int serverSocketID, SSL_CTX * sslCtx, HTTPHeaders *defaultHeaders);
+  virtual int initialize(int serverSocketID, esp_tls_cfg_server_t * cfgSrv, HTTPHeaders *defaultHeaders);
   virtual void closeConnection();
   virtual bool isSecure();
 
@@ -73,8 +64,8 @@ protected:
 
 private:
   // SSL context for this connection
-  SSL * _ssl;
-
+  esp_tls_t * _ssl;
+  esp_tls_cfg_server_t * _cfg;
 };
 
 } /* namespace httpsserver */

@@ -34,14 +34,7 @@
 
 // Required for SSL
 #if defined(ESP32)
-  #if USING_ESP_TLS
-    #error ESP_TLS not ready yet
-    #include "mbedtls/ssl.h"
-    #include <mbedtls/sha1.h>
-  #else
-    #include "openssl/ssl.h"
-  #endif
-
+  #include <esp_tls.h>	
   #include <sha/sha_parallel_engine.h>
 #elif defined(ESP8266)
   #error Not ready yet

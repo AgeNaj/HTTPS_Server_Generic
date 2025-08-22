@@ -20,15 +20,9 @@
 
 #include <string>
 #include <mbedtls/base64.h>
-
-#if 0
-//KH mod
-//#include <hwcrypto/sha.h>
-#include <sha/sha_parallel_engine.h>
-//////
-#endif
-
-#include <functional-vlpp.h>
+#include <mbedtls/sha1.h>
+#include <functional>
+//#include <functional-vlpp.h>
 
 // Required for sockets
 #include "lwip/netdb.h"

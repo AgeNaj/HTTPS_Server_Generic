@@ -13,6 +13,9 @@
  *****************************************************************************************************************************/
 
 #include "WebsocketHandler.hpp"
+#ifndef TAG
+#define TAG "ARDUINO"
+#endif
 
 namespace httpsserver
 {
@@ -53,7 +56,7 @@ static void dumpFrame(WebsocketFrame frame)
   }
 
   ESP_LOGI(
-    TAG,
+    "",
     "Fin: %d, OpCode: %d (%s), Mask: %d, Len: %d",
     (int)frame.fin,
     (int)frame.opCode,
