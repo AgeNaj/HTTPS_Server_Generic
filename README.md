@@ -1,5 +1,11 @@
 # HTTPS_Server_Generic Library
+## 2025 Update
 
+I needed a small and cheap IoT device that supported HTTPS for a cybersecurity competition (https://pcdc-sc.com/) and happened upon the ESP32. I could not find a functioning code set that supported HTTPS so I took the most recent git project I found and through trial and error updated it to operate once again. Big thanks to the original maintainers of these repos.  
+
+
+## All information below this line was created by the original package developer
+___________________________________________________________________________________________________________________________________________________________
 [![arduino-library-badge](https://www.ardu-badge.com/badge/HTTPS_Server_Generic.svg?)](https://www.ardu-badge.com/HTTPS_Server_Generic)
 [![GitHub release](https://img.shields.io/github/release/khoih-prog/HTTPS_Server_Generic.svg)](https://github.com/khoih-prog/HTTPS_Server_Generic/releases)
 [![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](#Contributing)
